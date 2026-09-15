@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NutriCycle AI — Unified Mission Control Cockpit (Standalone)</title>
+  <meta name="description"
+    content="Unified interactive mission control platform forecasting meal demand, evaluating microbial spoilage decay, matching surplus food to verified NGOs, and optimizing zero-emission logistics.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Leaflet GIS Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #060A12;
+      --bg-panel: rgba(13, 20, 36, 0.85);
+      --bg-panel-hover: rgba(22, 33, 58, 0.9);
+      --bg-card: rgba(18, 28, 48, 0.7);
+      --bg-input: rgba(8, 14, 26, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(16, 185, 129, 0.35);
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --emerald-500: #10B981;
+      --emerald-400: #34D399;
+      --emerald-glow: rgba(16, 185, 129, 0.28);
+      --cyan-500: #06B6D4;
+      --cyan-400: #22D3EE;
+      --amber-500: #F59E0B;
+      --amber-400: #FBBF24;
+      --rose-400: #FB7185;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-full: 9999px;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-display: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      background-image:
+        radial-gradient(circle at 10% 10%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        linear-gradient(180deg, #060A12 0%, #0A101E 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-full);
+    }
+
+    .cockpit-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(6, 10, 18, 0.88);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.75rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--emerald-500), var(--cyan-500));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FFFFFF 30%, var(--emerald-400) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border-radius: var(--radius-full);
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--emerald-400);
+    }
+
+    .btn {
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--emerald-500), var(--cyan-500));
+      color: #060A12;
+      font-weight: 700;
+      box-shadow: 0 3px 12px var(--emerald-glow);
+    }
+
+    .btn-demo-surge {
+      background: linear-gradient(135deg, #1E293B, #0F172A);
+      color: var(--cyan-400);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+    }
+
+    .cockpit-ticker-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      padding: 0.75rem 1.75rem;
+      background: rgba(8, 14, 26, 0.5);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .strip-stat {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.45rem 0.85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .strip-stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .strip-stat-val {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+
+    /* 3-Column Layout */
+    .cockpit-main-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr 370px;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      height: calc(100vh - 125px);
+      min-height: 700px;
+    }
+
+    .cockpit-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      overflow-y: auto;
+    }
+
+    .cockpit-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.1rem;
+    }
+
+    .card-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.15rem 0.55rem;
+      border-radius: var(--radius-full);
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .badge-emerald {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--emerald-400);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber-400);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .ctrl-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .ctrl-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ctrl-select,
+    .ctrl-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.75rem;
+      color: #FFFFFF;
+      font-size: 0.82rem;
+      outline: none;
+    }
+
+    .ctrl-slider {
+      flex: 1;
+      accent-color: var(--emerald-500);
+      cursor: pointer;
+    }
+
+    .slider-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--emerald-400);
+      background: rgba(16, 185, 129, 0.15);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .batch-mini-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .batch-mini-card.active-selected {
+      border-color: var(--emerald-500);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .batch-mini-card.urgent {
+      border-left: 3px solid var(--amber-500);
+    }
+
+    .batch-mini-card.fresh {
+      border-left: 3px solid var(--emerald-500);
+    }
+
+    .map-cockpit-wrapper {
+      flex: 1;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #gis-map {
+      flex: 1;
+      width: 100%;
+      min-height: 440px;
+    }
+
+    .mission-hud-banner {
+      background: rgba(11, 17, 32, 0.95);
+      border-top: 1px solid var(--border-subtle);
+      padding: 0.75rem 1.25rem;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .hud-progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .hud-progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan-400), var(--emerald-400));
+      width: 65%;
+    }
+
+    .whatsapp-inline-card {
+      background: rgba(7, 12, 22, 0.85);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #CBD5E1;
+      max-height: 130px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald-400);
+      display: inline-block;
+      box-shadow: 0 0 8px var(--emerald-400);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="cockpit-header">
+    <div class="brand-block">
+      <div class="brand-icon">🍲</div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <h1 class="brand-title" style="margin: 0;">NutriCycle AI</h1>
+          <span class="brand-badge">STANDALONE COCKPIT</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <button class="btn btn-demo-surge" id="s-btn-demo">
+        <i data-lucide="play" style="width: 15px; height: 15px;"></i> Run Rescue Demo
+      </button>
+    </div>
+  </header>
+
+  <section class="cockpit-ticker-strip">
+    <div class="strip-stat">
+      <span>🍱</span>
+      <div>
+        <div class="strip-stat-label">Total Meals Rescued</div>
+        <div class="strip-stat-val">42,850</div>
+      </div>
+    </div>
+    <div class="strip-stat">
+      <span>☁️</span>
+      <div>
+        <div class="strip-stat-label">Landfill Methane Averted</div>
+        <div class="strip-stat-val">42.8 MT CO2e</div>
+      </div>
+    </div>
+    <div class="strip-stat">
+      <span>💧</span>
+      <div>
+        <div class="strip-stat-label">Water Footprint Saved</div>
+        <div class="strip-stat-val">20.5 ML</div>
+      </div>
+    </div>
+    <div class="strip-stat">
+      <span>🛡️</span>
+      <div>
+        <div class="strip-stat-label">Landfill Diversion Rate</div>
+        <div class="strip-stat-val">88.4%</div>
+      </div>
+    </div>
+  </section>
+
+  <main class="cockpit-main-layout">
+    <!-- COL 1 -->
+    <section class="cockpit-col">
+      <div class="cockpit-card">
+        <div class="card-title-bar">
+          <h2 class="card-title">AI Demand Forecaster</h2>
+          <span class="badge badge-emerald">Prep: 3,591</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label"><span>Headcount</span><span class="slider-badge" id="s-hc-val">3,200</span></div>
+          <input type="range" class="ctrl-slider" id="s-hc-slider" min="1000" max="5000" step="100" value="3200">
+        </div>
+        <div style="font-size: 0.75rem; color: var(--emerald-400);">Waste Saved: <strong>~180 kg / day</strong></div>
+      </div>
+
+      <div class="cockpit-card" style="flex: 1;">
+        <div class="card-title-bar">
+          <h2 class="card-title">Active Surplus Batches</h2>
+          <span class="badge badge-amber">3 Monitored</span>
+        </div>
+        <div id="s-batches-container"></div>
+      </div>
+
+      <div class="cockpit-card">
+        <div class="card-title-bar">
+          <h2 class="card-title">Spoilage Decay</h2>
+          <span class="badge badge-amber" id="s-temp-badge">30°C</span>
+        </div>
+        <div class="ctrl-row">
+          <input type="range" class="ctrl-slider" id="s-temp-slider" min="4" max="40" step="1" value="30">
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary);">Safe Window: <strong
+            style="color: var(--amber-400);">1.8 hrs remaining</strong></div>
+      </div>
+    </section>
+
+    <!-- COL 2 -->
+    <section class="cockpit-col" style="overflow: hidden;">
+      <div class="map-cockpit-wrapper">
+        <div id="gis-map"></div>
+        <div class="mission-hud-banner">
+          <div>
+            <div style="font-weight: 800; font-size: 0.85rem;" id="s-mission-title">MISSION #0914-TECH</div>
+            <div style="font-size: 0.7rem; color: var(--cyan-400);">Volta Cargo EV 3-Wheeler</div>
+          </div>
+          <div>
+            <div style="font-size: 0.72rem; color: var(--text-secondary);">VNIT Central Mess ➔ Matru Sewa Sangh
+              Sitabuldi</div>
+            <div class="hud-progress-bar-bg">
+              <div class="hud-progress-bar-fill"></div>
+            </div>
+          </div>
+          <div class="badge badge-emerald">+156m Margin (Safe)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COL 3 -->
+    <section class="cockpit-col">
+      <div class="cockpit-card">
+        <div class="card-title-bar">
+          <h2 class="card-title">Automated Recipient Match</h2>
+          <span class="badge badge-emerald" id="s-match-score">Match: 98/100</span>
+        </div>
+        <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 8px;">
+          <div style="font-weight: 800; font-size: 0.92rem;" id="s-ngo-name">Matru Sewa Sangh & Shishu Bhavan</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">📍 Sitabuldi, Ambazari Road
+            (~3.4 km away)</div>
+          <div style="font-size: 0.75rem; margin: 6px 0;">Beneficiaries: <strong>175 residents</strong> | ETA: <strong
+              style="color: var(--cyan-400);">~14m</strong></div>
+          <button class="btn btn-primary" id="s-btn-dispatch" style="width: 100%; margin-top: 4px;">
+            Confirm & Dispatch EV Courier
+          </button>
+        </div>
+
+        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-top: 8px;">INSTANT
+          WHATSAPP ALERT</div>
+        <div class="whatsapp-inline-card" id="s-whatsapp">
+          🍲 *NUTRICYCLE RESCUE ALERT — NAGPUR*
+          Item: Varhadi Dal Tadka & Jeera Rice (180 meals)
+          Donor: VNIT Central Mess & Mega Dining Complex
+          Pickup ETA: ~14 mins | Token: NC-NAG-01
+          Claim Link: https://nutricycle.ai/c/NC-NAG-01
+        </div>
+      </div>
+
+      <div class="cockpit-card" style="flex: 1;">
+        <div class="card-title-bar">
+          <h2 class="card-title">Environmental Savings</h2>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; text-align: center;">
+          <div style="background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px;">
+            <div style="font-size: 0.68rem; color: var(--text-muted);">CO2e Neutralized</div>
+            <div style="font-weight: 800; color: var(--cyan-400); font-size: 1.1rem;">180 kg</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px;">
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Water Conserved</div>
+            <div style="font-weight: 800; color: var(--amber-400); font-size: 1.1rem;">86.4 kL</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const BATCHES = [
+      { id: "B1", name: "Varhadi Dal Tadka & Kolam Rice", donor: "VNIT Central Mess (Ambazari)", portions: 220, kg: 88, safe: "1.8h", ngo: "Matru Sewa Sangh (Sitabuldi)", dist: "3.2 km", score: "96/100", lat: 21.1255, lng: 79.0522 },
+      { id: "B2", name: "Paneer Makhani & Veg Pulao", donor: "Hotel Centre Point (Ramdaspeth)", portions: 180, kg: 72, safe: "2.5h", ngo: "Shraddhanand Anathalay", dist: "2.4 km", score: "94/100", lat: 21.1396, lng: 79.0718 },
+      { id: "B3", name: "Saoji Curry & Jeera Rice", donor: "Infosys & TCS MIHAN SEZ", portions: 260, kg: 104, safe: "2.0h", ngo: "Anandwan Relief Center (Manewada)", dist: "6.8 km", score: "92/100", lat: 21.0494, lng: 79.0416 }
+    ];
+
+    let map, routeLine, courierPin;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (window.lucide) window.lucide.createIcons();
+      // Initialize Leaflet Map Centered on Nagpur
+      map = L.map("gis-map").setView([21.1458, 79.0882], 12);
+      // Traditional Green OpenStreetMap Tiles
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors"
+      }).addTo(map);
+
+      // Pins across Nagpur
+      BATCHES.forEach(b => {
+        L.marker([b.lat, b.lng]).addTo(map).bindPopup(`<b>🏢 ${b.donor}</b><br>${b.name}`);
+      });
+      L.circleMarker([21.1412, 79.0795], { color: '#10B981', radius: 8, fillOpacity: 0.9 }).addTo(map).bindPopup('<b>🏠 Matru Sewa Sangh (Sitabuldi)</b>');
+      L.circleMarker([21.1280, 79.0680], { color: '#10B981', radius: 8, fillOpacity: 0.9 }).addTo(map).bindPopup('<b>🏠 Shraddhanand Anathalay</b>');
+
+      renderBatches();
+      selectBatch(BATCHES[0]);
+
+      document.getElementById("s-btn-demo")?.addEventListener("click", () => {
+        animateRoute();
+      });
+      document.getElementById("s-btn-dispatch")?.addEventListener("click", (e) => {
+        e.target.textContent = "✅ EV Courier Dispatched!";
+        animateRoute();
+        setTimeout(() => { e.target.textContent = "Confirm & Dispatch EV Courier"; }, 2500);
+      });
+    });
+
+    function renderBatches() {
+      const el = document.getElementById("s-batches-container");
+      el.innerHTML = BATCHES.map((b, i) => `
+        <div class="batch-mini-card ${i === 0 ? 'active-selected' : ''} ${b.safe.includes('1.') ? 'urgent' : 'fresh'}" onclick="selectBatch(BATCHES[${i}])">
+          <div style="font-weight: 700; font-size: 0.82rem; color: #FFF;">${b.name}</div>
+          <div style="font-size: 0.72rem; color: #94A3B8;">${b.donor} (${b.portions}p)</div>
+          <div style="font-size: 0.72rem; color: #FBBF24; margin-top: 2px;">Safe Window: ${b.safe}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectBatch(b) {
+      document.getElementById("s-ngo-name").textContent = b.ngo;
+      document.getElementById("s-match-score").textContent = `Match: ${b.score}`;
+      map.flyTo([b.lat, b.lng], 13);
+      drawRoute(b.lat, b.lng);
+    }
+
+    function drawRoute(lat, lng) {
+      if (routeLine) map.removeLayer(routeLine);
+      const coords = [[lat, lng], [21.1412, 79.0795]];
+      routeLine = L.polyline(coords, { color: '#06B6D4', weight: 4.5, dashArray: '6, 10' }).addTo(map);
+    }
+
+    function animateRoute() {
+      alert("🚀 EV Rescue Courier Dispatched across Nagpur! En route from VNIT Campus to Matru Sewa Sangh Sitabuldi.");
+    }
+  </script>
+</body>
+
+</html>
